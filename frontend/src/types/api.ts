@@ -55,6 +55,11 @@ export interface AccountConfigItem {
   mail_client_id?: string
   mail_refresh_token?: string
   mail_tenant?: string
+  mail_base_url?: string
+  mail_api_key?: string
+  mail_jwt_token?: string
+  mail_verify_ssl?: boolean
+  mail_domain?: string
 }
 
 export interface AccountsConfigResponse {
