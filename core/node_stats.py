@@ -19,6 +19,18 @@ class NodeStatsTracker:
         stats[node_name][result] = stats[node_name].get(result, 0) + 1
         self._save_stats(stats)
 
+        # 同步更新节点数据库
+        from core import node_manager
+        nodes = node_manager.load_all_nodes()
+        for node in nodes:
+            if node.get("name") == node_name:
+                if result == "success":
+                    node["success"] = node.get("success", 0) + 1
+                else:
+                    node["fail"] = node.get("fail", 0) + 1
+                node_manager.save_all_nodes(nodes)
+                break
+
     def get_stats(self) -> Dict[str, Dict[str, int]]:
         """获取统计数据"""
         return self._load_stats()
