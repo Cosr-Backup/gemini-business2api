@@ -326,7 +326,22 @@ docker-compose up -d
 
 ---
 
-## 🌐 Socks5 免费代理池
+## 🌐 代理配置
+
+### 节点代理（Clash 集成）
+
+项目集成 Clash 代理管理，支持订阅导入、节点统计、自动切换。
+
+**下载 mihomo 内核**（Windows）：
+```bash
+python scripts/download_mihomo.py
+```
+
+或手动下载：[mihomo releases](https://github.com/MetaCubeX/mihomo/releases) → 下载对应平台版本 → 重命名为 `mihomo.exe`（Windows）或 `mihomo`（Linux/macOS）→ 放到项目根目录
+
+**使用方式**：管理面板 → 节点管理 → 导入订阅/YAML → 启用代理总开关
+
+### Socks5 免费代理池
 
 自动注册/刷新账号时可配置代理以提高成功率。推荐使用免费 Socks5 代理池：
 
