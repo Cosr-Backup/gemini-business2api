@@ -276,6 +276,12 @@ const chartData = ref({
     modelTtfbTimes: {} as Record<string, number[]>,
     modelTotalTimes: {} as Record<string, number[]>,
   },
+  nodeStats: {
+    labels: [] as string[],
+    success: [] as number[],
+    riskControl: [] as number[],
+    other: [] as number[],
+  },
 })
 
 const trendChartRef = ref<HTMLDivElement | null>(null)
@@ -294,6 +300,8 @@ const charts = {
   hourlyRequests: null as ChartInstance | null,
   modelRank: null as ChartInstance | null,
   responseTime: null as ChartInstance | null,
+  nodeStats: null as ChartInstance | null,
+  failureType: null as ChartInstance | null,
 }
 
 function initChart(
@@ -327,9 +335,8 @@ onMounted(async () => {
   initChart(hourlyRequestsChartRef.value, 'hourlyRequests', updateHourlyRequestsChart)
   initChart(modelRankChartRef.value, 'modelRank', updateModelRankChart)
   initChart(responseTimeChartRef.value, 'responseTime', updateResponseTimeChart)
-
-  // 初始化节点统计图表
-  initNodeStatsCharts()
+  initChart(nodeStatsChartRef.value, 'nodeStats', updateNodeStatsCharts)
+  initChart(failureTypeChartRef.value, 'failureType', updateNodeStatsCharts)
 
   window.addEventListener('resize', handleResize)
 })
@@ -427,6 +434,16 @@ async function loadAccountStats() {
     stats.value[1].value = (overview.active_accounts ?? 0).toString()
     stats.value[2].value = (overview.failed_accounts ?? 0).toString()
     stats.value[3].value = (overview.rate_limited_accounts ?? 0).toString()
+
+    // 加载节点统计数据
+    if (overview.node_stats) {
+      const nodeStats = overview.node_stats
+      chartData.value.nodeStats.labels = nodeStats.labels || []
+      chartData.value.nodeStats.success = nodeStats.datasets?.find((d: any) => d.label === '成功')?.data || []
+      chartData.value.nodeStats.riskControl = nodeStats.datasets?.find((d: any) => d.label === '风控')?.data || []
+      chartData.value.nodeStats.other = nodeStats.datasets?.find((d: any) => d.label === '其他')?.data || []
+      updateNodeStatsCharts()
+    }
   } catch (error) {
     console.error('Failed to load account stats:', error)
   }
@@ -910,46 +927,47 @@ function updateResponseTimeChart() {
 }
 
 // 节点统计图表初始化
-async function initNodeStatsCharts() {
-  try {
-    const res = await fetch('/api/admin/nodes/stats')
-    const stats = await res.json()
+function updateNodeStatsCharts() {
+  if (!charts.nodeStats || !charts.failureType) return
 
-    if (!nodeStatsChartRef.value || !failureTypeChartRef.value) return
+  const theme = getLineChartTheme()
+  const labels = chartData.value.nodeStats.labels
+  const success = chartData.value.nodeStats.success
+  const riskControl = chartData.value.nodeStats.riskControl
+  const other = chartData.value.nodeStats.other
 
-    const { default: echarts } = await import('echarts')
+  // 节点成功率柱状图
+  charts.nodeStats.setOption({
+    ...theme,
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['成功', '风控', '其他'] },
+    grid: { ...theme.grid, top: 48, bottom: 32 },
+    xAxis: { ...theme.xAxis, type: 'category', data: labels },
+    yAxis: { ...theme.yAxis, type: 'value' },
+    series: [
+      { name: '成功', type: 'bar', data: success, itemStyle: { color: chartColors.success } },
+      { name: '风控', type: 'bar', data: riskControl, itemStyle: { color: chartColors.warning } },
+      { name: '其他', type: 'bar', data: other, itemStyle: { color: chartColors.error } }
+    ]
+  })
 
-    const nodes = Object.keys(stats)
-    const chart1 = echarts.init(nodeStatsChartRef.value)
-    chart1.setOption({
-      tooltip: { trigger: 'axis' },
-      legend: { data: ['成功', '风控', '其他'] },
-      xAxis: { type: 'category', data: nodes },
-      yAxis: { type: 'value' },
-      series: [
-        { name: '成功', type: 'bar', data: nodes.map(n => stats[n]?.success || 0), itemStyle: { color: '#10b981' } },
-        { name: '风控', type: 'bar', data: nodes.map(n => stats[n]?.risk_control || 0), itemStyle: { color: '#f59e0b' } },
-        { name: '其他', type: 'bar', data: nodes.map(n => stats[n]?.other || 0), itemStyle: { color: '#ef4444' } }
+  // 失败类型饼图
+  const totalRisk = riskControl.reduce((sum, v) => sum + v, 0)
+  const totalOther = other.reduce((sum, v) => sum + v, 0)
+  const pieTheme = getPieChartTheme()
+
+  charts.failureType.setOption({
+    ...pieTheme,
+    tooltip: { trigger: 'item' },
+    series: [{
+      type: 'pie',
+      radius: '60%',
+      data: [
+        createPieDataItem('风控', totalRisk, chartColors.warning),
+        createPieDataItem('其他失败', totalOther, chartColors.error)
       ]
-    })
-
-    const chart2 = echarts.init(failureTypeChartRef.value)
-    const totalRisk = nodes.reduce((sum, n) => sum + (stats[n]?.risk_control || 0), 0)
-    const totalOther = nodes.reduce((sum, n) => sum + (stats[n]?.other || 0), 0)
-    chart2.setOption({
-      tooltip: { trigger: 'item' },
-      series: [{
-        type: 'pie',
-        radius: '60%',
-        data: [
-          { value: totalRisk, name: '风控', itemStyle: { color: '#f59e0b' } },
-          { value: totalOther, name: '其他失败', itemStyle: { color: '#ef4444' } }
-        ]
-      }]
-    })
-  } catch (e) {
-    console.error('加载节点统计失败:', e)
-  }
+    }]
+  })
 }
 
 </script>

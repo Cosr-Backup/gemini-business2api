@@ -718,6 +718,9 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"[SYSTEM] 更新 Clash 端口失败: {e}")
 
+        # 初始化统计追踪器（无论 Clash 是否启动都需要）
+        stats_tracker = NodeStatsTracker()
+
         clash_manager = ClashManager(
             mihomo_path="mihomo.exe",
             config_path=clash_config_path,
@@ -726,12 +729,15 @@ async def lifespan(app: FastAPI):
         )
         if clash_manager.start():
             logger.info(f"[SYSTEM] Clash 代理已启动 (端口: {clash_manager.mixed_port})")
-            node_manager.init_clash(clash_manager, None)
+            node_manager.init_clash(clash_manager, stats_tracker)
         else:
             logger.warning("[SYSTEM] Clash 启动失败，请检查 mihomo.exe 和配置文件")
+            node_manager.init_clash(None, stats_tracker)
             clash_manager = None
     else:
         logger.info("[SYSTEM] Clash 代理未启用（代理总开关关闭）")
+        stats_tracker = NodeStatsTracker()
+        node_manager.init_clash(None, stats_tracker)
 
     yield
 
@@ -1993,6 +1999,7 @@ async def admin_update_settings(request: Request, new_settings: dict = Body(...)
 # ==================== 节点管理 API ====================
 
 from core import node_manager
+from core.node_stats import NodeStatsTracker
 from core.node_manager import (
     load_all_nodes, create_node, update_node, delete_node,
     reset_node_stats, import_from_url_list, import_from_clash_yaml,

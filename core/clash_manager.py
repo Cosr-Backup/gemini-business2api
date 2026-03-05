@@ -89,6 +89,10 @@ class ClashManager:
                     pass
             self.process = None
 
+    def is_running(self) -> bool:
+        """检查 Clash 是否正在运行"""
+        return self.process is not None and self.process.poll() is None
+
     def reload_config(self) -> bool:
         """热重载配置"""
         try:
